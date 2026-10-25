@@ -1,0 +1,30 @@
+import React, { useId, useState } from 'react';
+import { Search, Plus, X, Sparkles, ArrowUpRight } from 'lucide-react';
+import { useProfile } from './profile.jsx';
+import { safeLink, sameInterest } from './discovery-utils.js';
+import { RecommendationReason } from './recommendation-ui.jsx';
+
+export function SearchAdd({ label, options, values, onChange, placeholder, onSelect }) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  const id = useId();
+  const results = options.map(option => typeof option === 'string' ? { label: option } : option).filter(option => !values.some(value => sameInterest(value, option.label)) && `${option.label} ${option.searchText || ''}`.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 50);
+  const canAdd = query.trim() && !values.some(value => sameInterest(value, query)) && !options.some(option => sameInterest(typeof option === 'string' ? option : option.label, query));
+  function add(value) { const clean = value.trim(); if (!clean) return; if (!values.some(item => sameInterest(item, clean))) { onChange([...values, clean]); onSelect?.(clean); } setQuery(''); setOpen(false); setActive(-1); }
+  return <div className="search-add" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}><label htmlFor={id}>{label}</label><div className="search-field"><Search size={16}/><input id={id} role="combobox" aria-autocomplete="list" aria-expanded={open} aria-controls={`${id}-results`} aria-activedescendant={active >= 0 && active < results.length ? `${id}-option-${active}` : undefined} value={query} maxLength={120} placeholder={placeholder} onFocus={() => setOpen(true)} onChange={event => { setQuery(event.target.value); setOpen(true); setActive(-1); }} onKeyDown={event => { if (event.key === 'Escape') setOpen(false); if (event.key === 'ArrowDown') { event.preventDefault(); setOpen(true); setActive(previous => Math.min(previous + 1, results.length - 1)); } if (event.key === 'ArrowUp') { event.preventDefault(); setActive(previous => Math.max(previous - 1, 0)); } if (event.key === 'Enter') { event.preventDefault(); if (active >= 0 && results[active]) add(results[active].label); else if (query.trim()) add(options.map(option => typeof option === 'string' ? option : option.label).find(option => sameInterest(option, query)) || query); } }}/></div>{open && <div className="search-dropdown"><div id={`${id}-results`} role="listbox" aria-label={`${label} suggestions`}>{results.map((option, index) => <button type="button" role="option" id={`${id}-option-${index}`} aria-selected={active === index} key={option.label} onClick={() => add(option.label)}><span>{option.label}</span>{option.subtitle && <small>{option.subtitle}</small>}</button>)}</div>{canAdd && <button type="button" className="custom-add" onClick={() => add(query)}><Plus size={14}/>Add “{query.trim()}” anyway</button>}{!results.length && !canAdd && <p>No more suggestions. Type a new interest to add your own.</p>}</div>}<div className="selected-search-values">{values.map(value => <span key={value}>{value}<button type="button" aria-label={`Remove ${value}`} onClick={() => onChange(values.filter(item => item !== value))}><X size={12}/></button></span>)}</div></div>;
+}
+
+export function ClubSearch({ query, onChange, clubs, onSelect, onRequest }) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  const id = useId();
+  const results = clubs.filter(club => `${club.title} ${(club.sourceNames || []).join(' ')} ${club.tags.join(' ')} ${(club.categoryTags || []).join(' ')}`.toLowerCase().includes(query.trim().toLowerCase())).slice(0,50);
+  return <div className="club-search" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}><label htmlFor={id}>Search clubs or interests</label><div className="search-field"><Search size={17}/><input id={id} role="combobox" aria-expanded={open} aria-autocomplete="list" aria-controls={`${id}-clubs`} aria-activedescendant={active >= 0 && results[active] ? `${id}-club-${active}` : undefined} placeholder="Try robotics, investing, culture, skiing…" value={query} maxLength={120} onFocus={() => setOpen(true)} onChange={event => { onChange(event.target.value); setOpen(true); setActive(-1); }} onKeyDown={event => { if (event.key === 'Escape') setOpen(false); if (event.key === 'ArrowDown') { event.preventDefault(); setOpen(true); setActive(previous => Math.min(previous + 1, results.length - 1)); } if (event.key === 'ArrowUp') { event.preventDefault(); setActive(previous => Math.max(previous - 1, 0)); } if (event.key === 'Enter') { event.preventDefault(); if (active >= 0 && results[active]) { onSelect(results[active]); setOpen(false); } } }}/>{query && <button type="button" aria-label="Clear club search" onClick={() => { onChange(''); setOpen(false); }}><X size={15}/></button>}</div>{open && <div className="search-dropdown"><div id={`${id}-clubs`} role="listbox" aria-label="Club search results">{results.map((club, index) => <button type="button" role="option" id={`${id}-club-${index}`} aria-selected={active === index} key={club.id} onClick={() => { onSelect(club); setOpen(false); }}><span>{club.title}</span><small>{club.tags.join(' · ')}</small></button>)}</div>{!results.length && <><p>No club matches “{query}”. You can still request a new listing.</p><button className="custom-add" type="button" onClick={() => { onRequest(query); setOpen(false); }}><Plus size={14}/>Request “{query}”</button></>}</div>}</div>;
+}
+
+export function FitReason({ tags, clubTitle, item, kind }) {
+  return <RecommendationReason item={item || { id: clubTitle || 'preview', tags, title: clubTitle }} kind={kind || (clubTitle ? 'clubs' : 'projects')}/>;
+}
+
+export function ListingLink({ value, kind = 'website', label }) { const url = safeLink(value, kind); return url ? <a className="listing-external-link" href={url} target="_blank" rel="noopener noreferrer">{label || (kind === 'linkedin' ? 'Owner’s LinkedIn' : 'Club website')}<ArrowUpRight size={15}/></a> : null; }
