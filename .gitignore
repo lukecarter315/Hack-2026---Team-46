@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+.openai/
+.sites-*/
+published-demos/
+github-ready/
+*-preview.png
